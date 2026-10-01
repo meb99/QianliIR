@@ -22,9 +22,11 @@ Installationshinweise: [docs/Installation.txt](docs/Installation.txt).
 | One-Click-Schnellsuche / PCB-Schnellsuche | ✓ Kurzschluss-Schnellsuche (nur heiße Stelle farbig) |
 | Doppelbild-Vergleich | ✓ Platinenvergleich gut/defekt mit Differenzbild |
 | Dual-Light-Modi (Mischung, sichtbarer Hintergrund, nur sichtbar, nur IR) | ✓ mit beliebiger zweiter USB-Kamera, manuelle Ausrichtung |
-| Kalibrierung zurücksetzen | ✓ Temperatur-Korrektur (Offset) |
+| Kurve | ✓ Messlinie mit Temperaturprofil |
+| Kalibrierung zurücksetzen | ✓ Temperatur-Korrektur (Offset) und Emissionsgrad |
 | Treiber 1–4 | entfällt – macOS braucht keinen Treiber |
-| Hoch/Niedrig-Temperaturbereich umschalten | noch nicht (Kamera-Befehl, s. u.) |
+| Hoch/Niedrig-Temperaturbereich umschalten | ✓ per USB-Befehl an die Kamera |
+| Shutter / Kalibrieren | ✓ per USB-Befehl an die Kamera |
 
 ## Unterstützte Kameras
 
@@ -32,8 +34,9 @@ Kameras mit InfiRay **Tiny1-C** (USB `0BDA:5840`) oder **Mini** (`0BDA:5830`) Mo
 für die das Windows-Programm Treiber mitbringt. Sie melden sich am Mac als normale USB-Kamera und liefern
 pro Bild ein Graubild plus eine Temperatur-Tabelle (1/64 Kelvin pro Pixel); die App liest die Tabelle direkt aus.
 
-Noch nicht umgesetzt sind Befehle *an* die Kamera (Verstärkung hoch/niedrig, manueller Shutter); die Kamera
-kalibriert sich selbst. Ältere Xtherm/MIIR-Kameras mit eigenem Rohdatenformat werden nicht unterstützt.
+Befehle an die Kamera (Temperaturbereich, Shutter) gehen über dieselben USB-Herstelleranfragen wie in der
+Windows-DLL `libircmd` (siehe `Sources/ThermalCore/InfiRayProtocol.swift`). Ältere Xtherm/MIIR-Kameras mit eigenem
+Rohdatenformat werden nicht unterstützt.
 
 ## Bauen
 
@@ -47,4 +50,5 @@ GitHub Actions baut bei jedem Push automatisch und legt die DMG unter dem Releas
 ## Aufbau
 
 - `Sources/ThermalCore` – reine Swift-Logik: Bildformat erkennen, Temperaturen auslesen, Statistik, Drehen/Spiegeln, Paletten, Einfärben, Differenzbild, CSV, Demo-Szene.
+- `Sources/USBControl` – USB-Steuerbefehle an die Kamera (IOKit).
 - `Sources/QianliIR` – die App: Kamera (AVFoundation), Bildaufbau mit Markierungen (CoreGraphics), Video (AVAssetWriter), Oberfläche (SwiftUI), 3D (SceneKit), Verlauf (Swift Charts).

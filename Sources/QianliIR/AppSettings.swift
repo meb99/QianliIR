@@ -47,6 +47,12 @@ struct AppSettings: Codable, Equatable {
 
     /// Correction added to every measured temperature (°C).
     var temperatureOffset: Float = 0
+    /// Emissivity of the measured surface (1 = no correction) and reflected temperature (°C).
+    var emissivity: Float = 1
+    var reflectedTemp: Float = 25
+
+    /// Camera gain: true = normal range (about −20…150 °C), false = high temperature range (up to about 550 °C).
+    var highGain = true
 
     /// Quick search: only the area within this many degrees of the hottest point is coloured.
     var quickSearch = false

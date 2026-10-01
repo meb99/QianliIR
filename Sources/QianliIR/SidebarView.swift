@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 import ThermalCore
 
@@ -8,6 +9,7 @@ struct SidebarView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 cameraSection
+                cameraControlSection
                 readingsSection
                 imageSection
                 rangeSection
@@ -63,6 +65,65 @@ struct SidebarView: View {
         }
     }
 
+    private var cameraControlSection: some View {
+        GroupBox("Kamera-Einstellungen") {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Bereich", selection: $model.settings.highGain) {
+                    Text("Normal").tag(true)
+                    Text("Hochtemperatur").tag(false)
+                }
+                .pickerStyle(.segmented)
+                Text(model.settings.highGain ? "ca. −20 … 150 °C, feinere Auflösung" : "bis ca. 550 °C, z. B. für Heißluft und Lötkolben")
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Button {
+                        model.runShutter()
+                    } label: {
+                        Label("Shutter / Kalibrieren", systemImage: "camera.aperture")
+                    }
+                    .disabled(!model.canControlCamera || model.cameraBusy)
+                    if model.cameraBusy { ProgressView().controlSize(.small) }
+                }
+                Divider()
+                HStack {
+                    Text("Emissionsgrad")
+                    Slider(value: Binding(get: { Double(model.settings.emissivity) },
+                                          set: { model.settings.emissivity = Float(($0 * 100).rounded() / 100) }),
+                           in: 0.1...1)
+                    Text(String(format: "%.2f", model.settings.emissivity))
+                        .monospacedDigit()
+                        .frame(width: 36, alignment: .trailing)
+                }
+                Menu("Material wählen") {
+                    ForEach(Self.materials.indices, id: \.self) { i in
+                        let m = Self.materials[i]
+                        Button("\(m.0)  (\(String(format: "%.2f", m.1)))") { model.settings.emissivity = m.1 }
+                    }
+                }
+                if model.settings.emissivity < 0.999 {
+                    HStack {
+                        Text("Umgebung")
+                        TextField("", value: tempBinding(\.reflectedTemp), format: .number.precision(.fractionLength(0...1)))
+                            .frame(width: 60)
+                        Text(unit.symbol)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    static let materials: [(String, Float)] = [
+        ("Keine Korrektur", 1.00),
+        ("Platine / Lötstopplack", 0.92),
+        ("Kunststoff / Gehäuse", 0.95),
+        ("IC-Gehäuse (Epoxid)", 0.93),
+        ("Keramik-Kondensator", 0.90),
+        ("Kaptonband / Isolierband", 0.95),
+        ("Oxidiertes Kupfer", 0.65),
+        ("Blankes Metall / Abschirmung", 0.20),
+    ]
+
     private var readingsSection: some View {
         GroupBox("Messwerte") {
             VStack(alignment: .leading, spacing: 6) {
@@ -112,6 +173,27 @@ struct SidebarView: View {
                 } else {
                     Text("Kein Bild").foregroundStyle(.secondary)
                 }
+                if let p = model.profile, p.temperatures.count > 1 {
+                    HStack {
+                        Text("Linie").foregroundStyle(.teal)
+                        if let mi = p.maxIndex {
+                            Text("▲\(unit.format(p.temperatures[mi])) ▼\(unit.format(p.temperatures.min() ?? 0))")
+                                .monospacedDigit()
+                        }
+                        Spacer()
+                        Button { model.line = nil } label: { Image(systemName: "xmark") }
+                            .buttonStyle(.borderless)
+                    }
+                    Chart {
+                        ForEach(Array(p.temperatures.enumerated()), id: \.offset) { i, t in
+                            LineMark(x: .value("Punkt", i), y: .value("Temperatur", unit.convert(t)))
+                                .foregroundStyle(.teal)
+                        }
+                    }
+                    .chartYScale(domain: .automatic(includesZero: false))
+                    .chartXAxis(.hidden)
+                    .frame(height: 90)
+                }
                 Picker("Werkzeug", selection: $model.tool) {
                     ForEach(MeasureTool.allCases) { Text($0.name).tag($0) }
                 }
@@ -131,6 +213,7 @@ struct SidebarView: View {
         case .none: return "Maus über das Bild bewegen zeigt die Temperatur."
         case .spot: return "Ins Bild klicken setzt einen Messpunkt."
         case .rect: return "Im Bild ziehen setzt einen Messrahmen."
+        case .line: return "Im Bild ziehen setzt eine Messlinie mit Temperaturprofil."
         }
     }
 

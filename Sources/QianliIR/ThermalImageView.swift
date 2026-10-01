@@ -105,10 +105,14 @@ struct ThermalImageView: View {
     }
 
     private func dragChanged(_ v: DragGesture.Value, size: CGSize) {
-        guard model.tool == .rect else { return }
+        guard model.tool == .rect || model.tool == .line else { return }
         if dragStart == nil { dragStart = sensorPoint(v.startLocation, in: size, clamp: false) }
         guard let a = dragStart, let b = sensorPoint(v.location, in: size, clamp: true) else { return }
-        model.pendingRect = PixelRect(corner: a, b)
+        if model.tool == .rect {
+            model.pendingRect = PixelRect(corner: a, b)
+        } else {
+            model.line = [a, b]
+        }
     }
 
     private func dragEnded(_ v: DragGesture.Value, size: CGSize) {
@@ -121,6 +125,8 @@ struct ThermalImageView: View {
         case .rect:
             if let r = model.pendingRect { model.addRect(r) }
             model.pendingRect = nil
+        case .line:
+            if let l = model.line, l.count == 2, l[0] == l[1] { model.line = nil }
         }
     }
 }

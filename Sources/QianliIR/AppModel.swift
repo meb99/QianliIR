@@ -5,13 +5,14 @@ import Foundation
 import ThermalCore
 
 enum MeasureTool: String, CaseIterable, Identifiable {
-    case none, spot, rect
+    case none, spot, rect, line
     var id: String { rawValue }
     var name: String {
         switch self {
         case .none: return "Zeiger"
         case .spot: return "Messpunkt"
         case .rect: return "Messrahmen"
+        case .line: return "Linie"
         }
     }
 }
@@ -53,6 +54,10 @@ final class AppModel: ObservableObject {
     @Published var spots: [PixelPoint] = [] { didSet { rerender() } }
     @Published var rects: [PixelRect] = [] { didSet { rerender() } }
     @Published var pendingRect: PixelRect? { didSet { rerender() } }
+    /// Measuring line (start, end) and its temperature profile.
+    @Published var line: [PixelPoint]? { didSet { rerender() } }
+    @Published private(set) var profile: LineProfile?
+    @Published private(set) var cameraBusy = false
     @Published var hover: PixelPoint?
 
     // Recording, comparison, history
@@ -65,6 +70,7 @@ final class AppModel: ObservableObject {
     private let thermal = ThermalCapture()
     private let visible = VisibleCapture()
     private let compositor = Compositor()
+    private let control = CameraControl()
     private var recorder: VideoRecorder?
     private var recordTimer: Timer?
     private var demoTimer: Timer?
@@ -132,6 +138,8 @@ final class AppModel: ObservableObject {
         do {
             try thermal.start(deviceID: id)
             settings.thermalCameraID = id
+            if let device = AVCaptureDevice(uniqueID: id) { control.attach(to: device) }
+            if !settings.highGain { applyGain() }
             sourceName = thermal.deviceName
             isRunning = true
             message = nil
@@ -145,6 +153,7 @@ final class AppModel: ObservableObject {
 
     func startDemo() {
         thermal.stop()
+        control.detach()
         demoTimer?.invalidate()
         demoStart = Date()
         let scene = DemoScene()
@@ -189,6 +198,7 @@ final class AppModel: ObservableObject {
             updateVisibleCamera()
         }
         if !settings.alarmEnabled { alarmActive = false }
+        if old.highGain != settings.highGain { applyGain() }
         rerender()
     }
 
@@ -199,7 +209,10 @@ final class AppModel: ObservableObject {
     private func process(_ raw: ThermalFrame, live: Bool) {
         lastRaw = raw
         let st = settings
-        let f = raw.offset(by: st.temperatureOffset).transformed(rotation: st.rotation, flipH: st.flipH, flipV: st.flipV)
+        let f = EmissivityCorrection(emissivity: st.emissivity, reflectedTemp: st.reflectedTemp)
+            .apply(to: raw)
+            .offset(by: st.temperatureOffset)
+            .transformed(rotation: st.rotation, flipH: st.flipH, flipV: st.flipV)
         let s = f.stats()
 
         var options = RenderOptions(palette: st.palette, enhancement: st.enhancement)
@@ -214,13 +227,14 @@ final class AppModel: ObservableObject {
         }
 
         let input = CompositeInput(frame: f, rendered: r, stats: s, settings: st,
-                                   spots: spots, rects: rects, pendingRect: pendingRect,
+                                   spots: spots, rects: rects, pendingRect: pendingRect, line: line,
                                    visible: st.fusionMode == .thermal ? nil : visible.latestImage,
                                    alarm: alarm)
         let img = compositor.compose(input)
 
         frame = f
         stats = s
+        if let l = line, l.count == 2 { profile = LineProfile(frame: f, from: l[0], to: l[1]) } else { profile = nil }
         rendered = r
         alarmActive = alarm
         image = img
@@ -243,6 +257,7 @@ final class AppModel: ObservableObject {
         spots = []
         rects = []
         pendingRect = nil
+        line = nil
     }
 
     func addSpot(_ p: PixelPoint) {
@@ -259,6 +274,32 @@ final class AppModel: ObservableObject {
 
     func resetCalibration() {
         settings.temperatureOffset = 0
+        settings.emissivity = 1
+        settings.reflectedTemp = 25
+    }
+
+    // MARK: - Camera commands
+
+    var canControlCamera: Bool { !isDemo && isRunning && control.isAvailable }
+
+    /// Closes the shutter once so the camera recalibrates (FFC).
+    func runShutter() {
+        guard !isDemo else { return }
+        cameraBusy = true
+        control.shutter { [weak self] err in
+            self?.cameraBusy = false
+            self?.message = err ?? "Kamera kalibriert (Shutter)."
+        }
+    }
+
+    private func applyGain() {
+        guard !isDemo, isRunning else { return }
+        cameraBusy = true
+        let high = settings.highGain
+        control.setHighGain(high) { [weak self] err in
+            self?.cameraBusy = false
+            self?.message = err ?? (high ? "Normaler Temperaturbereich aktiv." : "Hochtemperatur-Bereich aktiv.")
+        }
     }
 
     // MARK: - Files

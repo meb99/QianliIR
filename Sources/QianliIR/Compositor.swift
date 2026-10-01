@@ -29,6 +29,7 @@ struct CompositeInput {
     var spots: [PixelPoint]
     var rects: [PixelRect]
     var pendingRect: PixelRect?
+    var line: [PixelPoint]?
     var visible: CGImage?
     var alarm: Bool
 }
@@ -196,6 +197,24 @@ final class Compositor {
             ctx.fill(CGRect(x: mp.x - 2, y: mp.y - 2, width: 4, height: 4))
             let text = "\(name)  ▲\(fmt(rs.max))  ▼\(fmt(rs.min))  Ø\(fmt(rs.mean))"
             drawLabel(text, at: CGPoint(x: box.minX, y: box.minY - fontSize * 1.6), color: color, fontSize: fontSize * 0.9, bounds: size)
+        }
+
+        if let l = input.line, l.count == 2 {
+            let a = pt(l[0]), b = pt(l[1])
+            ctx.setLineWidth(3)
+            ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.6).cgColor)
+            ctx.strokeLineSegments(between: [a, b])
+            ctx.setLineWidth(1.5)
+            ctx.setStrokeColor(NSColor.systemTeal.cgColor)
+            ctx.strokeLineSegments(between: [a, b])
+            let profile = LineProfile(frame: f, from: l[0], to: l[1])
+            if let mi = profile.maxIndex {
+                let c = pt(profile.points[mi])
+                ctx.setFillColor(NSColor.systemTeal.cgColor)
+                ctx.fillEllipse(in: CGRect(x: c.x - 4, y: c.y - 4, width: 8, height: 8))
+                drawLabel("L ▲" + fmt(profile.temperatures[mi]), at: CGPoint(x: c.x + 6, y: c.y + 4),
+                          color: .systemTeal, fontSize: fontSize * 0.9, bounds: size)
+            }
         }
 
         if input.alarm {

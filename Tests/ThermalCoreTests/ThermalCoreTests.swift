@@ -97,4 +97,32 @@ final class ThermalCoreTests: XCTestCase {
         let csv = CSVExport.temperatures(ThermalFrame(width: 2, height: 1, celsius: [1.5, 2]), unit: .celsius)
         XCTAssertEqual(csv, "1,50;2,00\n")
     }
+
+    func testProtocolPackets() {
+        // Same bytes the Windows libircmd.dll sends for set_prop_tpd_params(GAIN_SEL, 0).
+        XCTAssertEqual(InfiRayProtocol.setHighGain(false), [
+            .init(index: 0x9D00, bytes: [0x14, 0xC5, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00]),
+            .init(index: 0x1D08, bytes: [0, 0, 0, 0, 0, 0, 0, 0]),
+        ])
+        XCTAssertEqual(InfiRayProtocol.setParam(.emissivity, 0x0102_0304)[0].bytes, [0x14, 0xC5, 0x00, 0x03, 0x01, 0x02, 0x03, 0x04])
+        XCTAssertEqual(InfiRayProtocol.shutter(), [.init(index: 0x1D00, bytes: [0x0D, 0xC1, 0, 0, 0, 0, 0, 0])])
+        XCTAssertEqual(InfiRayProtocol.status(0), .ready)
+        XCTAssertEqual(InfiRayProtocol.status(1), .busy)
+        XCTAssertEqual(InfiRayProtocol.status(4), .failed)
+    }
+
+    func testEmissivity() {
+        let none = EmissivityCorrection(emissivity: 1, reflectedTemp: 25)
+        XCTAssertEqual(none.correct(80), 80)
+        let c = EmissivityCorrection(emissivity: 0.9, reflectedTemp: 25)
+        XCTAssertGreaterThan(c.correct(80), 80)       // a dull surface looks colder than it is
+        XCTAssertEqual(c.correct(25), 25, accuracy: 0.01) // at room temperature nothing changes
+    }
+
+    func testLineProfile() {
+        let f = ThermalFrame(width: 4, height: 1, celsius: [1, 2, 9, 3])
+        let p = LineProfile(frame: f, from: PixelPoint(x: 0, y: 0), to: PixelPoint(x: 3, y: 0))
+        XCTAssertEqual(p.temperatures, [1, 2, 9, 3])
+        XCTAssertEqual(p.maxIndex, 2)
+    }
 }

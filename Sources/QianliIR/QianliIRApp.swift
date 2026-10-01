@@ -66,6 +66,7 @@ struct ContentView: View {
                     Image(systemName: "cursorarrow").help("Zeiger").tag(MeasureTool.none)
                     Image(systemName: "scope").help("Messpunkt setzen").tag(MeasureTool.spot)
                     Image(systemName: "rectangle.dashed").help("Messrahmen ziehen").tag(MeasureTool.rect)
+                    Image(systemName: "line.diagonal").help("Messlinie ziehen (Temperaturprofil)").tag(MeasureTool.line)
                 }
                 .pickerStyle(.segmented)
             }
@@ -130,11 +131,27 @@ struct AppCommands: Commands {
             Button("Zeiger") { model.tool = .none }.keyboardShortcut("1", modifiers: .command)
             Button("Messpunkt") { model.tool = .spot }.keyboardShortcut("2", modifiers: .command)
             Button("Messrahmen") { model.tool = .rect }.keyboardShortcut("3", modifiers: .command)
+            Button("Messlinie") { model.tool = .line }.keyboardShortcut("4", modifiers: .command)
             Button("Alle Messungen löschen") { model.clearMeasurements() }
             Divider()
             Toggle("Heißesten Punkt verfolgen", isOn: $model.settings.trackMax)
             Toggle("Kältesten Punkt verfolgen", isOn: $model.settings.trackMin)
             Toggle("Hochtemperatur-Alarm", isOn: $model.settings.alarmEnabled)
+        }
+        CommandMenu("Kamera") {
+            Picker("Temperaturbereich", selection: $model.settings.highGain) {
+                Text("Normal (bis ca. 150 °C)").tag(true)
+                Text("Hoch (bis ca. 550 °C)").tag(false)
+            }
+            Button("Shutter / Kalibrieren") { model.runShutter() }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(!model.canControlCamera)
+            Divider()
+            Button("Kameras neu suchen") {
+                model.refreshCameras()
+                model.autoStart()
+            }
+            Button("Demo-Modus") { model.startDemo() }
         }
         CommandGroup(after: .toolbar) {
             Button("Drehen") { model.settings.rotation = model.settings.rotation.next }

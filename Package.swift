@@ -10,8 +10,10 @@ let package = Package(
     targets: [
         // Pure Swift: frame parsing, temperatures, palettes, rendering. No Apple frameworks.
         .target(name: "ThermalCore"),
+        // USB control transfers to the camera (IOKit), for gain switching and shutter.
+        .target(name: "USBControl", linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreFoundation")]),
         // The macOS app (SwiftUI + AVFoundation).
-        .executableTarget(name: "QianliIR", dependencies: ["ThermalCore"]),
+        .executableTarget(name: "QianliIR", dependencies: ["ThermalCore", "USBControl"]),
         .testTarget(name: "ThermalCoreTests", dependencies: ["ThermalCore"]),
     ]
 )
