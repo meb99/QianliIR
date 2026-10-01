@@ -125,4 +125,12 @@ final class ThermalCoreTests: XCTestCase {
         XCTAssertEqual(p.temperatures, [1, 2, 9, 3])
         XCTAssertEqual(p.maxIndex, 2)
     }
+
+    func testUpdateManifest() throws {
+        let json = #"{"build": 9, "version": "1.9", "notes": "Updater\n\n- Neue Funktion\n", "zip": "QianLi-IR-Mac.zip"}"#
+        let m = try JSONDecoder().decode(UpdateManifest.self, from: Data(json.utf8))
+        XCTAssertTrue(m.isNewer(thanBuild: 8))
+        XCTAssertFalse(m.isNewer(thanBuild: 9))
+        XCTAssertEqual(m.noteLines, ["Updater", "Neue Funktion"])
+    }
 }

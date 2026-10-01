@@ -19,7 +19,24 @@ jobs:
       - name: App und DMG bauen
         env:
           BUILD: ${{ github.run_number }}
+          VERSION: 1.${{ github.run_number }}
         run: ./scripts/build-app.sh
+
+      - name: Versionsinfo für den Updater
+        env:
+          BUILD: ${{ github.run_number }}
+          VERSION: 1.${{ github.run_number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          notes = subprocess.check_output(["git", "log", "-1", "--format=%B"]).decode().strip()
+          manifest = {"build": int(os.environ["BUILD"]), "version": os.environ["VERSION"],
+                      "notes": notes, "zip": "QianLi-IR-Mac.zip"}
+          with open("dist/version.json", "w", encoding="utf-8") as f:
+              json.dump(manifest, f, ensure_ascii=False, indent=2)
+          with open("dist/release-notes.md", "w", encoding="utf-8") as f:
+              f.write("## Was ist neu\n\n" + notes + "\n\n" + open("docs/Installation.txt", encoding="utf-8").read())
+          PY
 
       - uses: actions/upload-artifact@v4
         with:
@@ -27,6 +44,7 @@ jobs:
           path: |
             dist/QianLi-IR-Mac.dmg
             dist/QianLi-IR-Mac.zip
+            dist/version.json
 
       - name: Download-Seite (Release) aktualisieren
         if: github.ref == 'refs/heads/main'
@@ -35,10 +53,10 @@ jobs:
         run: |
           TAG="mac-latest"
           gh release delete "$TAG" --yes --cleanup-tag || true
-          gh release create "$TAG" dist/QianLi-IR-Mac.dmg dist/QianLi-IR-Mac.zip \
+          gh release create "$TAG" dist/QianLi-IR-Mac.dmg dist/QianLi-IR-Mac.zip dist/version.json \
             --target "$GITHUB_SHA" \
-            --title "QianLi IR für Mac (Build ${{ github.run_number }})" \
-            --notes-file docs/Installation.txt
+            --title "QianLi IR für Mac 1.${{ github.run_number }}" \
+            --notes-file dist/release-notes.md
 
       - name: Alten Arbeits-Branch entfernen
         if: github.ref == 'refs/heads/main'

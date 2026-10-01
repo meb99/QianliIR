@@ -28,6 +28,15 @@ Installationshinweise: [docs/Installation.txt](docs/Installation.txt).
 | Hoch/Niedrig-Temperaturbereich umschalten | ✓ per USB-Befehl an die Kamera |
 | Shutter / Kalibrieren | ✓ per USB-Befehl an die Kamera |
 
+## Updates
+
+Die App sucht beim Start und alle 6 Stunden nach einer neuen Version (abschaltbar unter Einstellungen) und
+lässt sich auch über *QianLi IR › Nach Updates suchen …* prüfen. Ein Klick auf „Jetzt aktualisieren“ lädt die
+neue Version, ersetzt die App und startet sie neu – Einstellungen, Fotos und Videos bleiben erhalten.
+
+Jeder Push auf `main` erzeugt eine neue Version: Die Nummer ist `1.<Build>`, und die Commit-Nachricht erscheint
+in der App als „Was ist neu“. Darum Commit-Nachrichten für neue Funktionen als kurze, verständliche Liste schreiben.
+
 ## Unterstützte Kameras
 
 Kameras mit InfiRay **Tiny1-C** (USB `0BDA:5840`) oder **Mini** (`0BDA:5830`) Modul – das sind die Module,

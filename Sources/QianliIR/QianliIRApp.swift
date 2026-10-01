@@ -6,14 +6,21 @@ import ThermalCore
 struct QianliIRApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
+    @StateObject private var updater = Updater()
 
     var body: some Scene {
         WindowGroup("QianLi IR", id: "main") {
             ContentView()
                 .environmentObject(model)
+                .environmentObject(updater)
         }
         .defaultSize(width: 1180, height: 760)
-        .commands { AppCommands(model: model) }
+        .commands {
+            AppCommands(model: model)
+            CommandGroup(after: .appInfo) {
+                Button("Nach Updates suchen …") { Task { await updater.check(userInitiated: true) } }
+            }
+        }
 
         Window("3D-Ansicht", id: "3d") {
             Thermal3DWindow().environmentObject(model)
@@ -31,7 +38,7 @@ struct QianliIRApp: App {
         .defaultSize(width: 760, height: 380)
 
         Settings {
-            SettingsView().environmentObject(model)
+            SettingsView().environmentObject(model).environmentObject(updater)
         }
     }
 }
@@ -48,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct ContentView: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var updater: Updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -71,6 +79,13 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
             }
             ToolbarItemGroup {
+                if let m = updater.available {
+                    Button { updater.showSheet = true } label: {
+                        Label("Update \(m.version)", systemImage: "arrow.down.circle.fill")
+                    }
+                    .help("Neue Version verfügbar")
+                    .tint(.green)
+                }
                 Button { model.snapshot() } label: { Label("Foto", systemImage: "camera") }
                     .help("Foto speichern (PNG + Temperaturen als CSV)")
                     .disabled(model.image == nil)
@@ -95,7 +110,11 @@ struct ContentView: View {
             }
         }
         .navigationTitle("QianLi IR")
-        .task { await model.startup() }
+        .task {
+            updater.startAutomaticChecks()
+            await model.startup()
+        }
+        .sheet(isPresented: $updater.showSheet) { UpdateSheet().environmentObject(updater) }
     }
 }
 
@@ -171,6 +190,7 @@ struct AppCommands: Commands {
 
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var updater: Updater
 
     var body: some View {
         Form {
@@ -193,9 +213,102 @@ struct SettingsView: View {
                 }
                 Toggle("Warnton bei Alarm", isOn: $model.settings.alarmSound)
             }
+            Section("Updates") {
+                Toggle("Automatisch nach Updates suchen", isOn: $updater.autoCheck)
+                HStack {
+                    Text("Installiert: Version \(updater.localVersion) (Build \(updater.localBuild))")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Jetzt suchen") { Task { await updater.check(userInitiated: true) } }
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 520)
         .padding()
+    }
+}
+
+struct UpdateSheet: View {
+    @EnvironmentObject var updater: Updater
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 56, height: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.title2.bold())
+                    Text("Installiert: Version \(updater.localVersion) (Build \(updater.localBuild))")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            content
+            HStack {
+                Button("Download-Seite") { NSWorkspace.shared.open(Updater.releasePage) }
+                Spacer()
+                switch updater.state {
+                case .available:
+                    Button("Später") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Jetzt aktualisieren") { updater.install() }
+                        .keyboardShortcut(.defaultAction)
+                case .downloading, .installing, .checking:
+                    EmptyView()
+                default:
+                    Button("OK") { dismiss() }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+
+    private var title: String {
+        switch updater.state {
+        case .available(let m): return "Version \(m.version) ist da"
+        case .upToDate: return "QianLi IR ist aktuell"
+        case .checking: return "Suche nach Updates …"
+        case .downloading, .installing: return "Update wird installiert"
+        case .failed: return "Update nicht möglich"
+        case .idle: return "Updates"
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch updater.state {
+        case .available(let m):
+            Text("Was ist neu:").font(.headline)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(m.noteLines.enumerated()), id: \.offset) { _, line in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("•")
+                            Text(line).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 220)
+            Text("Die App wird ersetzt und startet danach neu. Einstellungen, Fotos und Videos bleiben erhalten.")
+                .font(.caption).foregroundStyle(.secondary)
+        case .checking:
+            ProgressView().frame(maxWidth: .infinity)
+        case .downloading(let f):
+            ProgressView("Lade herunter …", value: f, total: 1)
+        case .installing:
+            ProgressView("Installiere und starte neu …")
+        case .failed(let msg):
+            Text(msg).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+        case .upToDate:
+            Text("Du hast die neueste Version.")
+        case .idle:
+            EmptyView()
+        }
     }
 }
