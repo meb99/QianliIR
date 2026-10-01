@@ -1,0 +1,41 @@
+name: Mac-App bauen
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tests
+        run: swift test
+
+      - name: App und DMG bauen
+        env:
+          BUILD: ${{ github.run_number }}
+        run: ./scripts/build-app.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QianLi-IR-Mac
+          path: |
+            dist/QianLi-IR-Mac.dmg
+            dist/QianLi-IR-Mac.zip
+
+      - name: Download-Seite (Release) aktualisieren
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="mac-latest"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" dist/QianLi-IR-Mac.dmg dist/QianLi-IR-Mac.zip \
+            --target "$GITHUB_SHA" \
+            --title "QianLi IR für Mac (Build ${{ github.run_number }})" \
+            --notes-file docs/Installation.txt

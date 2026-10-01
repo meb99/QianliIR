@@ -1,0 +1,23 @@
+QianLi IR für Mac – Installation
+================================
+
+1. „QianLi-IR-Mac.dmg“ öffnen und „QianLi IR“ in den Ordner „Programme“ ziehen.
+
+2. Beim ersten Start meldet macOS, dass die App nicht überprüft werden kann
+   (sie ist nicht bei Apple registriert). So öffnen Sie sie trotzdem:
+   - macOS 15 (Sequoia) und neuer: App einmal öffnen, die Meldung mit „Fertig“
+     schließen, dann Systemeinstellungen › Datenschutz & Sicherheit › ganz unten
+     bei „QianLi IR“ auf „Trotzdem öffnen“ klicken.
+   - macOS 13 / 14: Im Programme-Ordner mit Rechtsklick (Ctrl-Klick) auf
+     „QianLi IR“ › „Öffnen“ › „Öffnen“.
+   Das ist nur einmal nötig.
+
+3. Den Kamerazugriff erlauben, wenn macOS danach fragt.
+
+4. Wärmebildkamera per USB anschließen. Auf dem Mac wird KEIN Treiber benötigt –
+   die Kamera erscheint automatisch. Ohne Kamera kann man den Demo-Modus ausprobieren.
+
+Fotos, Videos und Temperatur-Tabellen landen in Bilder › QianLi IR
+(änderbar unter QianLi IR › Einstellungen).
+
+Voraussetzung: macOS 13 (Ventura) oder neuer, Apple-Silicon- oder Intel-Mac.
