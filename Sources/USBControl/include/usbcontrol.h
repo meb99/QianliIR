@@ -15,4 +15,8 @@ int usbctl_transfer(uint16_t vendorID, uint16_t productID,
 /// 1 if a device with this vendor/product id is connected.
 int usbctl_present(uint16_t vendorID, uint16_t productID);
 
+/// Writes one line per connected USB device ("VVVV:PPPP  Name  (Hersteller)") into buf.
+/// Returns the number of devices.
+int usbctl_list(char *buf, int bufSize);
+
 #endif

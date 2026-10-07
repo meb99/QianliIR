@@ -4,6 +4,7 @@
 #include <IOKit/IOCFPlugIn.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/IOUSBLib.h>
+#include <stdio.h>
 
 static io_service_t find_device(uint16_t vid, uint16_t pid) {
     const char *classes[] = {"IOUSBHostDevice", kIOUSBDeviceClassName};
@@ -108,4 +109,46 @@ int usbctl_transfer(uint16_t vendorID, uint16_t productID,
     }
     (*dev)->Release(dev);
     return kr;
+}
+
+static void cfstring_prop(io_service_t s, const char *key, char *out, int size) {
+    out[0] = 0;
+    CFStringRef k = CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8);
+    CFTypeRef v = IORegistryEntryCreateCFProperty(s, k, kCFAllocatorDefault, 0);
+    CFRelease(k);
+    if (v && CFGetTypeID(v) == CFStringGetTypeID()) CFStringGetCString((CFStringRef)v, out, size, kCFStringEncodingUTF8);
+    if (v) CFRelease(v);
+}
+
+static int int_prop(io_service_t s, const char *key) {
+    int value = -1;
+    CFStringRef k = CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8);
+    CFTypeRef v = IORegistryEntryCreateCFProperty(s, k, kCFAllocatorDefault, 0);
+    CFRelease(k);
+    if (v && CFGetTypeID(v) == CFNumberGetTypeID()) CFNumberGetValue((CFNumberRef)v, kCFNumberIntType, &value);
+    if (v) CFRelease(v);
+    return value;
+}
+
+int usbctl_list(char *buf, int bufSize) {
+    if (bufSize <= 0) return 0;
+    buf[0] = 0;
+    io_iterator_t it = 0;
+    if (IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOUSBHostDevice"), &it) != KERN_SUCCESS) return 0;
+    int count = 0, used = 0;
+    io_service_t s;
+    while ((s = IOIteratorNext(it))) {
+        char name[128], vendor[128], serial[64];
+        cfstring_prop(s, "USB Product Name", name, sizeof name);
+        cfstring_prop(s, "USB Vendor Name", vendor, sizeof vendor);
+        cfstring_prop(s, "USB Serial Number", serial, sizeof serial);
+        int vid = int_prop(s, "idVendor"), pid = int_prop(s, "idProduct");
+        int n = snprintf(buf + used, bufSize - used, "%04X:%04X  %s  (%s)%s%s\n", vid & 0xFFFF, pid & 0xFFFF,
+                         name[0] ? name : "?", vendor[0] ? vendor : "?", serial[0] ? "  SN " : "", serial);
+        if (n > 0 && used + n < bufSize) used += n;
+        count++;
+        IOObjectRelease(s);
+    }
+    IOObjectRelease(it);
+    return count;
 }

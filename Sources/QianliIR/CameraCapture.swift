@@ -20,7 +20,12 @@ enum CameraDirectory {
         } else {
             types.append(.externalUnknown)
         }
-        return AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .unspecified).devices
+        var devices = AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .unspecified).devices
+        // The older API also lists unusual devices the discovery session may skip.
+        for d in AVCaptureDevice.devices(for: .video) where !devices.contains(where: { $0.uniqueID == d.uniqueID }) {
+            devices.append(d)
+        }
+        return devices
     }
 
     static func cameras() -> [CameraInfo] {

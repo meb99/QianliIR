@@ -128,7 +128,10 @@ final class AppModel: ObservableObject {
         if let cam = thermalCams.first(where: { $0.id == settings.thermalCameraID }) ?? thermalCams.first {
             startCamera(cam.id)
         } else if !isDemo {
-            message = "Keine Wärmebildkamera gefunden. Kamera per USB anschließen – oder den Demo-Modus zum Ausprobieren starten."
+            let others = cameras.map(\.name)
+            message = others.isEmpty
+                ? "Keine Kamera gefunden. Kamera per USB anschließen – oder den Demo-Modus zum Ausprobieren starten."
+                : "Keine Wärmebildkamera erkannt. Gefunden: \(others.joined(separator: ", ")). Bitte „Kamera-Diagnose“ öffnen und den Text schicken."
         }
     }
 

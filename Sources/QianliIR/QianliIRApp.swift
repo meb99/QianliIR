@@ -32,6 +32,11 @@ struct QianliIRApp: App {
         }
         .defaultSize(width: 1100, height: 420)
 
+        Window("Kamera-Diagnose", id: "diagnose") {
+            DiagnosticsWindow().environmentObject(model)
+        }
+        .defaultSize(width: 720, height: 560)
+
         Window("Temperaturverlauf", id: "history") {
             HistoryWindow().environmentObject(model)
         }
@@ -178,6 +183,9 @@ struct AppCommands: Commands {
             Toggle("Links/rechts spiegeln", isOn: $model.settings.flipH)
             Toggle("Oben/unten spiegeln", isOn: $model.settings.flipV)
             Divider()
+        }
+        CommandGroup(replacing: .help) {
+            Button("Kamera-Diagnose …") { openWindow(id: "diagnose") }
         }
         CommandGroup(before: .windowList) {
             Button("3D-Ansicht") { openWindow(id: "3d") }

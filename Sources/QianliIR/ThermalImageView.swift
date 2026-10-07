@@ -5,6 +5,7 @@ import ThermalCore
 /// places measuring points and frames.
 struct ThermalImageView: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
     @State private var dragStart: PixelPoint?
 
     var body: some View {
@@ -74,6 +75,7 @@ struct ThermalImageView: View {
                     model.autoStart()
                 }
                 Button("Demo-Modus starten") { model.startDemo() }
+                Button("Kamera-Diagnose") { openWindow(id: "diagnose") }
             }
         }
         .padding()
